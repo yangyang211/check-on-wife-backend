@@ -94,26 +94,18 @@ async def summary():
     cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY id ASC")
     rows = cur.fetchall()
     conn.close()
-    # 只统计今天（JST时区）的记录，每天零点自动清零翻篇
-    now_jst = datetime.utcnow() + JST
-    day_start_jst = now_jst.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_start_utc = day_start_jst - JST
     sessions, opens = {}, {}
     for r in rows:
         app, ev, ts = r
-        t = datetime.fromisoformat(ts)
-        if t < day_start_utc:  # 昨天的记录直接跳过，只算今天的
-            continue
         if ev == "open":
-            opens[app] = t
+            opens[app] = datetime.fromisoformat(ts)
         elif ev == "close" and app in opens:
-            gap = int((t - opens[app]).total_seconds())
+            gap = int((datetime.fromisoformat(ts) - opens[app]).total_seconds())
             sessions[app] = sessions.get(app, 0) + gap
             del opens[app]
     return {
         "recent_apps": [r[0] for r in recent],
-        "sessions": sessions,
-        "period": "today"
+        "sessions": sessions
     }
 
 if __name__ == "__main__":
