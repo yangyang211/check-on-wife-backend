@@ -86,7 +86,9 @@ async def ping():
     return "pong"
 
 @app.get("/activity/summary")
-async def summary():
+async def summary(day: str = None):
+    """查岗时长统计：默认返回 JST(日本时区) 当天数据，每天零点自动清零。
+    传 day=YYYY-MM-DD 可查历史某一天。"""
     conn = sqlite3.connect(str(DB_PATH))
     cur = conn.cursor()
     cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY id DESC LIMIT 5")
@@ -94,13 +96,24 @@ async def summary():
     cur.execute("SELECT app_name, event, timestamp FROM records ORDER BY id ASC")
     rows = cur.fetchall()
     conn.close()
+
+    jst_now = datetime.utcnow() + JST
+    if day:
+        day_start = datetime.fromisoformat(day + "T00:00:00")
+    else:
+        day_start = jst_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = day_start + timedelta(days=1)
+
     sessions, opens = {}, {}
     for r in rows:
         app, ev, ts = r
+        t = datetime.fromisoformat(ts) + JST  # UTC 记录转成 JST
+        if t < day_start or t >= day_end:
+            continue
         if ev == "open":
-            opens[app] = datetime.fromisoformat(ts)
+            opens[app] = t
         elif ev == "close" and app in opens:
-            gap = int((datetime.fromisoformat(ts) - opens[app]).total_seconds())
+            gap = int((t - opens[app]).total_seconds())
             sessions[app] = sessions.get(app, 0) + gap
             del opens[app]
     return {
