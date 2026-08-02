@@ -9,7 +9,7 @@ import requests
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / "records.db"
-JST = timedelta(hours=9)
+CST = timedelta(hours=8)
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN", "yangyangCheckOnMe")
 BARK_KEY = os.environ.get("BARK_API_KEY", "TV7ecrvu53F9NHi9VN2bjk")
 
@@ -87,7 +87,7 @@ async def ping():
 
 @app.get("/activity/summary")
 async def summary(day: str = None):
-    """查岗时长统计：默认返回 JST(日本时区) 当天数据，每天零点自动清零。
+    """查岗时长统计：默认返回 北京时间(CST, UTC+8) 当天数据，每天零点自动清零。
     传 day=YYYY-MM-DD 可查历史某一天。"""
     conn = sqlite3.connect(str(DB_PATH))
     cur = conn.cursor()
@@ -97,17 +97,17 @@ async def summary(day: str = None):
     rows = cur.fetchall()
     conn.close()
 
-    jst_now = datetime.utcnow() + JST
+    cst_now = datetime.utcnow() + CST
     if day:
         day_start = datetime.fromisoformat(day + "T00:00:00")
     else:
-        day_start = jst_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_start = cst_now.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
 
     sessions, opens = {}, {}
     for r in rows:
         app, ev, ts = r
-        t = datetime.fromisoformat(ts) + JST  # UTC 记录转成 JST
+        t = datetime.fromisoformat(ts) + CST  # UTC 记录转成北京时间
         if t < day_start or t >= day_end:
             continue
         if ev == "open":
